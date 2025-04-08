@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZenFlow - Breathing Meditation App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .breathing-circle, #layer1, #layer2 {
+            transition: all 1.5s ease-in-out;
+        }
+        .fade-in { animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .technique-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .breath-text { text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        /* Mobile app specific styles */
+        .app-view {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .app-view.active {
+            display: block;
+            opacity: 1;
+        }
+        .page-transition {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .page-enter {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        .page-exit {
+            transform: translateX(-100%);
+            opacity: 0;
+        }
+        .bottom-nav-item {
+            transition: all 0.2s ease;
+        }
+        .bottom-nav-item.active {
+            color: #4f46e5;
+            transform: translateY(-4px);
+        }
+        .bottom-nav-item.active i {
+            transform: scale(1.2);
+        }
+        .status-bar {
+            height: 24px;
+            background-color: rgba(0,0,0,0.1);
+        }
+        .app-container {
+            max-width: 100%;
+            width: 100%;
+            margin: 0 auto;
+            height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        .app-content {
+            height: calc(100vh - 80px); /* Adjust for bottom nav */
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 20px;
+        }
+        .bottom-nav {
+            height: 70px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .hide-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+    <style>
+        /* Remove top padding below header */
+        .app-view {
+            padding-top: 0 !important;
+        }
+    </style>
+    <style>
+        body.dark-mode { background-color: #111827 !important; color: #f9fafb !important; } /* Tailwind gray-900, gray-50 */
+        body.dark-mode .bg-white { background-color: #1f2937 !important; color: #f9fafb !important; } /* Tailwind gray-800 */
+        body.dark-mode .bg-indigo-50 { background-color: #374151 !important; } /* Tailwind gray-700 */
+        body.dark-mode .text-gray-800, body.dark-mode .text-gray-700, body.dark-mode .text-gray-600, body.dark-mode .text-gray-500 { color: #d1d5db !important; } /* Tailwind gray-300 */
+        body.dark-mode .text-indigo-800, body.dark-mode .text-indigo-700, body.dark-mode .text-indigo-600 { color: #a5b4fc !important; } /* Tailwind indigo-300 */
+        body.dark-mode .bg-indigo-100 { background-color: #4f46e5 !important; color: #e0e7ff !important; } /* Tailwind indigo-600, indigo-100 */
+        body.dark-mode select, body.dark-mode input[type=range], body.dark-mode input[type=checkbox] { background-color: #374151 !important; color: #f9fafb !important; border-color: #4b5563 !important; }
+        body.dark-mode .border-gray-200 { border-color: #374151 !important; }
+        body.dark-mode .border-indigo-200 { border-color: #4f46e5 !important; }
+        body.dark-mode .shadow-xl, body.dark-mode .shadow-lg, body.dark-mode .shadow-md { box-shadow: 0 10px 15px -3px rgba(255, 255, 255, 0.05), 0 4px 6px -2px rgba(255, 255, 255, 0.03); }
+        body.dark-mode button.bg-gray-200 { background-color: #4b5563 !important; color: #f9fafb !important; } /* gray-600 */
+        body.dark-mode button.hover\\:bg-gray-300:hover { background-color: #6b7280 !important; } /* gray-500 */
+        body.dark-mode button.border { border-color: #4f46e5 !important; }
+        body.dark-mode button.hover\\:bg-indigo-50:hover { background-color: #3730a3 !important; } /* indigo-800 */
+        body.dark-mode .technique-card { background-color: #1f2937 !important; }
+        body.dark-mode .bottom-nav { background-color: #1f2937 !important; border-top: 1px solid #374151 !important; }
+        body.dark-mode .bottom-nav-item { color: #9ca3af !important; }
+        body.dark-mode .bottom-nav-item.active { color: #a5b4fc !important; }
+        body.dark-mode .status-bar { background-color: rgba(0,0,0,0.3) !important; }
+    </style>
+</head>
+<body class="font-sans bg-gray-50 text-gray-800">
+    <div class="app-container">
+        <!-- Header -->
+        <header class="gradient-bg text-white p-4 shadow-lg">
+            <div class="container mx-auto flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-spa text-2xl"></i>
+                    <h1 class="text-xl font-bold">ZenFlow</h1>
+                </div>
+                <div class="flex items-center">
+                    <div class="flex items-center">
+                        <i class="fas fa-users mr-1"></i>
+                        <span id="active-users" class="font-medium">0</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- App Content Area -->
+        <div class="app-content hide-scrollbar">
+            <!-- Home View -->
+            <div id="home-view" class="app-view active page-transition">
+                <div class="p-4">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold mb-2 text-indigo-800">Welcome Back</h2>
+                        <p class="text-gray-600">Continue your meditation journey</p>
+                    </div>
+                    
+                    <!-- Quick Start Card -->
+                    <div class="bg-white rounded-2xl shadow-md p-5 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-indigo-800">Quick Start</h3>
+                            <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">4-4-4-4</span>
+                        </div>
+                        <p class="text-gray-600 mb-4">Box breathing is perfect for quick stress relief and focus.</p>
+                        <button id="quick-start-btn" class="w-full py-3 bg-indigo-600 text-white rounded-full font-medium hover:bg-indigo-700 transition flex items-center justify-center">
+                            <i class="fas fa-play mr-2"></i> Start Box Breathing
+                        </button>
+                    </div>
+                    
+                    <!-- Stats Summary -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-indigo-800">Start Your Journey</h3>
+                            <a href="#" class="text-indigo-600 text-sm" data-view="stats-view">Learn More</a>
+                        </div>
+                        <div class="bg-indigo-50 p-4 rounded-lg">
+                            <div class="flex items-center">
+                                <div class="text-indigo-600 mr-3"><i class="fas fa-seedling text-xl"></i></div>
+                                <div>
+                                    <h3 class="font-bold text-gray-700 text-sm">Begin Your Practice</h3>
+                                    <p class="text-sm text-gray-600">Track your progress and build a meditation habit</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Featured Techniques -->
+                    <div>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-indigo-800">Featured Techniques</h3>
+                            <a href="#" class="text-indigo-600 text-sm" data-view="techniques-view">See All</a>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="technique-card bg-white rounded-xl shadow-md overflow-hidden transition duration-300">
+                                <div class="p-4">
+                                    <div class="flex justify-between items-start">
+                                        <h3 class="text-md font-bold text-indigo-800">4-7-8 Breathing</h3>
+                                        <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">4-7-8-0</span>
+                                    </div>
+                                    <p class="text-gray-600 text-sm mt-1">Dr. Weil's method for relaxation. Great for sleep.</p>
+                                </div>
+                            </div>
+                            <div class="technique-card bg-white rounded-xl shadow-md overflow-hidden transition duration-300">
+                                <div class="p-4">
+                                    <div class="flex justify-between items-start">
+                                        <h3 class="text-md font-bold text-indigo-800">Wim Hof Method</h3>
+<span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">1-0-1-0</span>
+                                    </div>
+                                    <p class="text-gray-600 text-sm mt-1">Powerful breathing for energy and immune system.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Breathing Exercise View -->
+            <div id="breathing-view" class="app-view page-transition">
+                <div class="p-4">
+                    <div class="bg-white rounded-2xl shadow-xl p-6 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 id="current-technique-name" class="text-lg font-bold text-indigo-800">Box Breathing</h3>
+                            <span id="current-technique-pattern" class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">4-4-4-4</span>
+                        </div>
+                        <div class="flex flex-col items-center justify-center mb-4">
+                            <!-- Larger breathing animation -->
+                            <div class="relative w-72 h-72 sm:w-80 sm:h-80 flex items-center justify-center mb-4">
+                                <div class="absolute w-full h-full rounded-full bg-indigo-200 opacity-20 transition-all duration-1500 ease-in-out scale-100" id="layer1"></div>
+                                <div class="absolute w-4/5 h-4/5 rounded-full bg-indigo-300 opacity-30 transition-all duration-1500 ease-in-out scale-100" id="layer2"></div>
+                                <div class="absolute w-3/5 h-3/5 rounded-full bg-indigo-400 flex items-center justify-center shadow-lg transition-all duration-1500 ease-in-out scale-100" id="breathing-circle">
+                                    <span id="breath-text" class="text-white font-bold text-2xl breath-text">READY</span>
+                                </div>
+                            </div>
+                            <div class="w-full max-w-md">
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-sm font-medium text-indigo-700">Inhale</span>
+                                    <span class="text-sm font-medium text-indigo-700">Exhale</span>
+                                </div>
+                                <div class="relative">
+                                    <div class="flex h-2 mb-4 overflow-hidden text-xs bg-indigo-100 rounded">
+                                        <div id="progress-bar" style="width:0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500 transition-all duration-500"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Start/Stop buttons above time controls -->
+                            <div class="flex justify-center space-x-4 mb-4 w-full">
+                                <button id="start-btn" aria-label="Start breathing exercise" class="px-6 py-2 bg-indigo-600 text-white rounded-full font-medium hover:bg-indigo-700 transition flex items-center">
+                                    <i class="fas fa-play mr-2"></i> Start
+                                </button>
+                                <button id="stop-btn" aria-label="Stop breathing exercise" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-full font-medium hover:bg-gray-300 transition flex items-center" disabled>
+                                    <i class="fas fa-stop mr-2"></i> Stop
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- More compact time controls -->
+                        <div class="grid grid-cols-2 gap-3 mb-2">
+                            <div>
+                                <label for="inhale-time" class="block text-xs font-medium text-gray-700 mb-1">Inhale Time</label>
+<input type="range" id="inhale-time" min="2" max="10" value="4" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                <div class="flex justify-between text-xs text-gray-500"><span>2s</span><span id="inhale-value">4s</span><span>10s</span></div>
+                            </div>
+                            <div>
+                                <label for="exhale-time" class="block text-xs font-medium text-gray-700 mb-1">Exhale Time</label>
+<input type="range" id="exhale-time" min="2" max="10" value="4" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                <div class="flex justify-between text-xs text-gray-500"><span>2s</span><span id="exhale-value">6s</span><span>10s</span></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label for="hold-in" class="block text-xs font-medium text-gray-700 mb-1">Hold After Inhale</label>
+<input type="range" id="hold-in" min="0" max="10" value="4" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                <div class="flex justify-between text-xs text-gray-500"><span>0s</span><span id="hold-in-value">0s</span><span>10s</span></div>
+                            </div>
+                            <div>
+                                <label for="hold-out" class="block text-xs font-medium text-gray-700 mb-1">Hold After Exhale</label>
+<input type="range" id="hold-out" min="0" max="10" value="4" class="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                <div class="flex justify-between text-xs text-gray-500"><span>0s</span><span id="hold-out-value">0s</span><span>10s</span></div>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <h4 class="text-sm font-medium text-gray-700 mb-2">Sound Options</h4>
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label for="breathing-sound" class="block text-xs font-medium text-gray-700 mb-1">Breathing Sound</label>
+<select id="breathing-sound" class="w-full p-1.5 text-sm border border-gray-300 rounded-lg">
+    <option value="">None</option>
+    <option value="assets/breathe/Soft%20Whoosh.mp3">Soft Whoosh</option>
+    <option value="assets/breathe/Deep%20Breath.mp3">Deep Breath</option>
+    <option value="assets/breathe/Gentle%20Chime.mp3">Gentle Chime</option>
+</select>
+                                </div>
+                                <div>
+                                    <label for="ambient-sound" class="block text-xs font-medium text-gray-700 mb-1">Ambient Sound</label>
+<select id="ambient-sound" class="w-full p-1.5 text-sm border border-gray-300 rounded-lg">
+    <option value="">None</option>
+    <option value="assets/ambient/Forest%20Stream.mp3">Forest Stream</option>
+    <option value="assets/ambient/Campfire.mp3">Campfire</option>
+    <option value="assets/ambient/Ocean%20Waves.mp3">Ocean Waves</option>
+    <option value="assets/ambient/Meditation%20Bell.mp3">Meditation Bell</option>
+    <option value="assets/ambient/Rain%20Ambient.mp3">Rain Ambient</option>
+</select>
+                                </div>
+                            </div>
+                            <div class="flex justify-center">
+                                <button id="sound-btn" aria-label="Toggle all sounds" class="px-4 py-2 bg-white border border-indigo-200 text-indigo-600 rounded-full font-medium hover:bg-indigo-50 transition flex items-center">
+                                    <i class="fas fa-volume-mute mr-2"></i> Sound Off
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Technique Selector -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold mb-3 text-indigo-800">Select Technique</h3>
+                        <div class="flex overflow-x-auto pb-2 hide-scrollbar space-x-3">
+                            <button class="apply-technique whitespace-nowrap px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-200 transition" data-inhale="4" data-exhale="4" data-hold-in="4" data-hold-out="4">
+                                Box Breathing
+                            </button>
+                            <button class="apply-technique whitespace-nowrap px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-50 transition" data-inhale="4" data-exhale="8" data-hold-in="7" data-hold-out="0">
+                                4-7-8 Breathing
+                            </button>
+                            <button class="apply-technique whitespace-nowrap px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-50 transition" data-inhale="6" data-exhale="6" data-hold-in="0" data-hold-out="0">
+                                Pranayama
+                            </button>
+<button class="apply-technique whitespace-nowrap px-4 py-2 bg-white border border-indigo-200 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-50 transition" data-inhale="1" data-exhale="1" data-hold-in="0" data-hold-out="0">
+    Wim Hof
+</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Techniques View -->
+            <div id="techniques-view" class="app-view page-transition">
+                <div class="p-4">
+                    <h2 class="text-2xl font-bold mb-4 text-indigo-800">Breathing Techniques</h2>
+                    <div class="space-y-4">
+                        <div class="technique-card bg-white rounded-xl shadow-md overflow-hidden transition duration-300 cursor-pointer">
+                            <div class="p-5">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-xl font-bold text-indigo-800 mb-2">Box Breathing</h3>
+                                    <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">4-4-4-4</span>
+                                </div>
+                                <p class="text-gray-600 mb-3">Military technique for stress reduction and focus. Inhale, hold, exhale, hold - each for 4 seconds.</p>
+                                <button class="apply-technique px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-200 transition" data-inhale="4" data-exhale="4" data-hold-in="4" data-hold-out="4" data-view="breathing-view">Apply Technique</button>
+                            </div>
+                        </div>
+                        <div class="technique-card bg-white rounded-xl shadow-md overflow-hidden transition duration-300 cursor-pointer">
+                            <div class="p-5">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-xl font-bold text-indigo-800 mb-2">4-7-8 Breathing</h3>
+                                    <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">4-7-8-0</span>
+                                </div>
+                                <p class="text-gray-600 mb-3">Dr. Weil's method for relaxation. Inhale 4s, hold 7s, exhale 8s. Great for sleep.</p>
+                                <button class="apply-technique px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-200 transition" data-inhale="4" data-exhale="8" data-hold-in="7" data-hold-out="0" data-view="breathing-view">Apply Technique</button>
+                            </div>
+                        </div>
+                        <div class="technique-card bg-white rounded-xl shadow-md overflow-hidden transition duration-300 cursor-pointer">
+                            <div class="p-5">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-xl font-bold text-indigo-800 mb-2">Pranayama</h3>
+                                    <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">6-0-6-0</span>
+                                </div>
+                                <p class="text-gray-600 mb-3">Traditional yogic breathing. Equal inhale and exhale for balance and calm.</p>
+                                <button class="apply-technique px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-200 transition" data-inhale="6" data-exhale="6" data-hold-in="0" data-hold-out="0" data-view="breathing-view">Apply Technique</button>
+                            </div>
+                        </div>
+                        <div class="technique-card bg-white rounded-xl shadow-md overflow-hidden transition duration-300 cursor-pointer">
+                            <div class="p-5">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-xl font-bold text-indigo-800 mb-2">Wim Hof Method</h3>
+                                    <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">5-0-5-0</span>
+                                </div>
+                                <p class="text-gray-600 mb-3">Powerful breathing for energy and immune system. 30-40 rapid breaths followed by retention.</p>
+<button class="apply-technique px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-200 transition" data-inhale="1" data-exhale="1" data-hold-in="0" data-hold-out="0" data-view="breathing-view">Apply Technique</button>
+                            </div>
+                        </div>
+                        <div class="technique-card bg-white rounded-xl shadow-md overflow-hidden transition duration-300 cursor-pointer">
+                            <div class="p-5">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-xl font-bold text-indigo-800 mb-2">Cardiac Coherence</h3>
+                                    <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">5-0-5-0</span>
+                                </div>
+                                <p class="text-gray-600 mb-3">6 breaths per minute to synchronize heart rate and breathing for stress relief.</p>
+                                <button class="apply-technique px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-200 transition" data-inhale="5" data-exhale="5" data-hold-in="0" data-hold-out="0" data-view="breathing-view">Apply Technique</button>
+                            </div>
+                        </div>
+                        <div class="technique-card bg-white rounded-xl shadow-md overflow-hidden transition duration-300 cursor-pointer">
+                            <div class="p-5">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-xl font-bold text-indigo-800 mb-2">Alternate Nostril</h3>
+                                    <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">4-4-4-4</span>
+                                </div>
+                                <p class="text-gray-600 mb-3">Balances left and right brain hemispheres. Inhale left, hold, exhale right, repeat.</p>
+                                <button class="apply-technique px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium hover:bg-indigo-200 transition" data-inhale="4" data-exhale="4" data-hold-in="4" data-hold-out="4" data-view="breathing-view">Apply Technique</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stats View -->
+            <div id="stats-view" class="app-view page-transition">
+                <div class="p-4">
+                    <h2 class="text-2xl font-bold mb-4 text-indigo-800">Your Meditation Stats</h2>
+                    
+                    <!-- Coming Soon Message -->
+                    <div class="bg-white rounded-2xl shadow-xl p-8 mb-6 text-center">
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
+                                <i class="fas fa-chart-line text-indigo-600 text-3xl"></i>
+                            </div>
+                            <h3 class="text-xl font-bold mb-2 text-indigo-700">Coming Soon</h3>
+                            <p class="text-gray-600 mb-4">We're working on tracking your meditation progress. Stats will be available in the next update!</p>
+                            <div class="w-full max-w-xs bg-gray-100 h-2 rounded-full overflow-hidden">
+                                <div class="bg-indigo-500 h-2 rounded-full" style="width: 75%"></div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-2">75% Complete</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Feature Preview -->
+                    <div class="bg-white rounded-2xl shadow-xl p-6">
+                        <h3 class="text-lg font-bold mb-4 text-indigo-700">Upcoming Features</h3>
+                        <ul class="space-y-3">
+                            <li class="flex items-start">
+                                <i class="fas fa-check-circle text-green-500 mt-1 mr-3"></i>
+                                <div>
+                                    <h4 class="font-medium text-gray-800">Session Tracking</h4>
+                                    <p class="text-sm text-gray-600">Track your daily meditation sessions and total time</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check-circle text-green-500 mt-1 mr-3"></i>
+                                <div>
+                                    <h4 class="font-medium text-gray-800">Weekly Progress</h4>
+                                    <p class="text-sm text-gray-600">Visual charts showing your weekly meditation patterns</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check-circle text-green-500 mt-1 mr-3"></i>
+                                <div>
+                                    <h4 class="font-medium text-gray-800">Achievements</h4>
+                                    <p class="text-sm text-gray-600">Earn badges and rewards for consistent practice</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-hourglass-half text-indigo-500 mt-1 mr-3"></i>
+                                <div>
+                                    <h4 class="font-medium text-gray-800">Stress Reduction Metrics</h4>
+                                    <p class="text-sm text-gray-600">Measure how meditation is improving your wellbeing</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Profile View -->
+            <div id="profile-view" class="app-view page-transition">
+                <div class="p-4">
+                    <div class="flex flex-col items-center mb-6">
+                        <div class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center mb-3">
+                            <i class="fas fa-user text-indigo-600 text-3xl"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-indigo-800">Zen User</h2>
+                        <p class="text-gray-600">Meditation Enthusiast</p>
+                    </div>
+                    
+                    <!-- Settings List -->
+                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
+                        <div class="p-4 border-b border-gray-100">
+                            <h3 class="text-lg font-bold text-indigo-800">App Settings</h3>
+                        </div>
+                        <div class="divide-y divide-gray-100">
+                            <div class="p-4 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <i class="fas fa-moon text-indigo-600 w-8"></i>
+                                    <span class="text-gray-700">Dark Mode</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input id="dark-mode-toggle" type="checkbox" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                            <div class="p-4 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <i class="fas fa-volume-up text-indigo-600 w-8"></i>
+                                    <span class="text-gray-700">Sound Effects</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                            <div class="p-4 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <i class="fas fa-bell text-indigo-600 w-8"></i>
+                                    <span class="text-gray-700">Notifications</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                            <div class="p-4 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <i class="fas fa-mobile-alt text-indigo-600 w-8"></i>
+                                    <span class="text-gray-700">Vibration</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input id="vibration-toggle" type="checkbox" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Theme Selection -->
+                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
+                        <div class="p-4 border-b border-gray-100">
+                            <h3 class="text-lg font-bold text-indigo-800">Theme Color</h3>
+                        </div>
+                        <div class="p-4 flex justify-around">
+                            <button data-color="#667eea" class="w-10 h-10 rounded-full bg-indigo-600 border-2 border-indigo-700"></button>
+                            <button data-color="#2dd4bf" class="w-10 h-10 rounded-full bg-teal-500 border-2 border-white"></button>
+                            <button data-color="#a855f7" class="w-10 h-10 rounded-full bg-purple-600 border-2 border-white"></button>
+                            <button data-color="#ec4899" class="w-10 h-10 rounded-full bg-pink-500 border-2 border-white"></button>
+                        </div>
+                    </div>
+                    
+                    <!-- Sound Selection -->
+
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center px-2 py-1 z-10">
+            <a href="#" class="bottom-nav-item active flex flex-col items-center p-2" data-view="home-view">
+                <i class="fas fa-home text-xl mb-1"></i>
+                <span class="text-xs">Home</span>
+            </a>
+            <a href="#" class="bottom-nav-item flex flex-col items-center p-2" data-view="breathing-view">
+                <i class="fas fa-lungs text-xl mb-1"></i>
+                <span class="text-xs">Breathe</span>
+            </a>
+            <a href="#" class="bottom-nav-item flex flex-col items-center p-2" data-view="techniques-view">
+                <i class="fas fa-book text-xl mb-1"></i>
+                <span class="text-xs">Techniques</span>
+            </a>
+            <a href="#" class="bottom-nav-item flex flex-col items-center p-2" data-view="stats-view">
+                <i class="fas fa-chart-bar text-xl mb-1"></i>
+                <span class="text-xs">Stats</span>
+            </a>
+            <a href="#" class="bottom-nav-item flex flex-col items-center p-2" data-view="profile-view">
+                <i class="fas fa-user text-xl mb-1"></i>
+                <span class="text-xs">Profile</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-indigo-800">Settings</h3>
+                    <button id="close-settings" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Theme Color</label>
+                        <div class="flex space-x-2">
+                            <button data-color="#667eea" class="w-8 h-8 rounded-full bg-indigo-600 border-2 border-indigo-700"></button>
+                            <button data-color="#2dd4bf" class="w-8 h-8 rounded-full bg-teal-500 border-2 border-white"></button>
+                            <button data-color="#a855f7" class="w-8 h-8 rounded-full bg-purple-600 border-2 border-white"></button>
+                            <button data-color="#ec4899" class="w-8 h-8 rounded-full bg-pink-500 border-2 border-white"></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Breath Sounds</label>
+<select id="sound-select-modal" class="w-full p-2 border border-gray-300 rounded-lg">
+    <option value="assets/ambient/Calm%20Ambient.mp3">Calm Ambient</option>
+    <option value="assets/ambient/Ocean%20Waves.mp3">Ocean Waves</option>
+    <option value="assets/ambient/Forest%20Ambience.mp3">Forest Ambience</option>
+    <option value="assets/ambient/Singing%20Bowls.mp3">Singing Bowls</option>
+</select>
+                    </div>
+                    <div>
+                        <label class="flex items-center space-x-2">
+                            <input id="vibration-toggle-modal" type="checkbox" class="rounded text-indigo-600">
+                            <span class="text-sm font-medium text-gray-700">Vibration Feedback</span>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="flex items-center space-x-2">
+                            <input id="dark-mode-toggle-modal" type="checkbox" class="rounded text-indigo-600">
+                            <span class="text-sm font-medium text-gray-700">Dark Mode</span>
+                        </label>
+                    </div>
+                    <div class="pt-4">
+                        <button id="save-settings-btn" class="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition">Save Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // DOM Elements
+    const breathingCircle = document.getElementById('breathing-circle');
+    const layer1 = document.getElementById('layer1');
+    const layer2 = document.getElementById('layer2');
+    const breathText = document.getElementById('breath-text');
+    const progressBar = document.getElementById('progress-bar');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const soundBtn = document.getElementById('sound-btn');
+    const inhaleTime = document.getElementById('inhale-time');
+    const exhaleTime = document.getElementById('exhale-time');
+    const holdIn = document.getElementById('hold-in');
+    const holdOut = document.getElementById('hold-out');
+    const inhaleValue = document.getElementById('inhale-value');
+    const exhaleValue = document.getElementById('exhale-value');
+    const holdInValue = document.getElementById('hold-in-value');
+    const holdOutValue = document.getElementById('hold-out-value');
+    const activeUsers = document.getElementById('active-users');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const closeSettings = document.getElementById('close-settings');
+    const applyTechniqueBtns = document.querySelectorAll('.apply-technique');
+    const darkModeCheckbox = document.getElementById('dark-mode-toggle');
+    const darkModeCheckboxModal = document.getElementById('dark-mode-toggle-modal');
+    const themeButtons = document.querySelectorAll('button[data-color]');
+    const saveSettingsBtn = document.getElementById('save-settings-btn');
+    const soundSelect = document.getElementById('sound-select');
+    const soundSelectModal = document.getElementById('sound-select-modal');
+    const breathingSound = document.getElementById('breathing-sound');
+    const ambientSound = document.getElementById('ambient-sound');
+    const vibrationToggle = document.getElementById('vibration-toggle');
+    const vibrationToggleModal = document.getElementById('vibration-toggle-modal');
+    const quickStartBtn = document.getElementById('quick-start-btn');
+    const bottomNavItems = document.querySelectorAll('.bottom-nav-item');
+    const appViews = document.querySelectorAll('.app-view');
+
+    // Mobile App Navigation
+    function navigateTo(viewId) {
+        // If we're already on this view, do nothing
+        const currentActiveView = document.querySelector('.app-view.active');
+        if (currentActiveView && currentActiveView.id === viewId) {
+            return;
+        }
+        
+        // If we're navigating away from breathing view, stop any active breathing
+        if (currentActiveView && currentActiveView.id === 'breathing-view' && isBreathing) {
+            stopBreathing();
+        }
+        
+        // Hide all views with animation
+        appViews.forEach(view => {
+            if (view.classList.contains('active')) {
+                view.classList.add('page-exit');
+                setTimeout(() => {
+                    view.classList.remove('active', 'page-exit');
+                }, 300);
+            }
+        });
+        
+        // Update bottom nav active state
+        bottomNavItems.forEach(item => {
+            if (item.dataset.view === viewId) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+        
+        // Show the selected view with animation
+        setTimeout(() => {
+            const targetView = document.getElementById(viewId);
+            if (targetView) {
+                targetView.classList.add('active', 'page-enter');
+                setTimeout(() => {
+                    targetView.classList.remove('page-enter');
+                }, 10);
+            }
+        }, 300);
+        
+        // Save the current view to localStorage
+        localStorage.setItem('zenflow-current-view', viewId);
+    }
+    
+    // Set up navigation event listeners
+    bottomNavItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const viewId = item.dataset.view;
+            if (viewId) {
+                navigateTo(viewId);
+            }
+        });
+    });
+    
+    // Set up navigation for other links with data-view attribute
+    document.querySelectorAll('[data-view]').forEach(el => {
+        if (!el.classList.contains('bottom-nav-item')) {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                const viewId = el.dataset.view;
+                if (viewId) {
+                    navigateTo(viewId);
+                }
+            });
+        }
+    });
+    
+    // Quick start button
+    if (quickStartBtn) {
+        quickStartBtn.addEventListener('click', () => {
+            // Set box breathing values
+            inhaleTime.value = 4;
+            exhaleTime.value = 4;
+            holdIn.value = 4;
+            holdOut.value = 4;
+            inhaleValue.textContent = '4s';
+            exhaleValue.textContent = '4s';
+            holdInValue.textContent = '4s';
+            holdOutValue.textContent = '4s';
+            
+            // Navigate to breathing view and start
+            navigateTo('breathing-view');
+            setTimeout(() => {
+                startBreathing();
+            }, 500);
+        });
+    }
+
+    // Audio System
+    let ambientAudio = new Audio();
+    ambientAudio.loop = true;
+    
+    let breathingAudio = new Audio();
+    breathingAudio.loop = false;
+    
+    let soundOn = false;
+    let currentAmbientSrc = '';
+    let currentBreathingSrc = '';
+    
+    // Create a toast notification
+    function showToast(message, isError = false) {
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-20 left-1/2 transform -translate-x-1/2 ${isError ? 'bg-red-600' : 'bg-indigo-600'} text-white px-4 py-2 rounded-full shadow-lg z-50 fade-in`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 500);
+        }, 3000);
+    }
+    
+    // Load ambient sound
+function loadAmbientSound(src) {
+    if (ambientAudio) {
+        ambientAudio.pause();
+        ambientAudio.currentTime = 0;
+    }
+    
+    if (src && src !== currentAmbientSrc) {
+        ambientAudio = new Audio(src);
+        ambientAudio.loop = true;
+        currentAmbientSrc = src;
+        
+        ambientAudio.preload = 'auto';
+        
+        ambientAudio.addEventListener('canplaythrough', () => {
+            console.log('Ambient audio loaded and can play through');
+            if (soundOn) {
+                playAmbientSound();
+            }
+        });
+        
+        ambientAudio.onerror = (e) => {
+            console.error('Failed to load ambient sound:', src, e);
+            showToast('Failed to load ambient sound. Please try another.', true);
+            localStorage.removeItem('zenflow-ambient-sound');
+            if (ambientSound) ambientSound.value = '';
+        };
+        
+        ambientAudio.load();
+        
+        if (soundOn) {
+            playAmbientSound();
+        }
+    } else if (!src) {
+        if (ambientAudio) {
+            ambientAudio.pause();
+            ambientAudio.currentTime = 0;
+        }
+        currentAmbientSrc = '';
+    }
+}
+
+function loadAudio(src) {
+    loadAmbientSound(src);
+    loadBreathingSound(src);
+}
+    
+    // Load breathing sound
+function loadBreathingSound(src) {
+    if (breathingAudio) {
+        breathingAudio.pause();
+        breathingAudio.currentTime = 0;
+    }
+
+    if (src && src !== currentBreathingSrc) {
+        breathingAudio = new Audio(src);
+        breathingAudio.loop = false;
+        currentBreathingSrc = src;
+        
+        breathingAudio.preload = 'auto';
+        
+        breathingAudio.onerror = (e) => {
+            console.error('Failed to load breathing sound:', src, e);
+            showToast('Failed to load breathing sound. Please try another.', true);
+            localStorage.removeItem('zenflow-breathing-sound');
+            if (breathingSound) breathingSound.value = '';
+        };
+        
+        breathingAudio.load();
+    } else if (!src) {
+        currentBreathingSrc = '';
+    }
+}
+    
+    // Play ambient sound
+    function playAmbientSound() {
+        if (ambientAudio && currentAmbientSrc && soundOn) {
+            const playPromise = ambientAudio.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log('Ambient audio playback started successfully');
+                }).catch(e => {
+                    console.error("Ambient audio play failed:", e);
+                    // Most browsers require user interaction before playing audio
+                    showToast('Tap anywhere to enable sound');
+                    
+                    // Add a one-time click handler to the document to play audio on user interaction
+                    const clickHandler = () => {
+                        if (soundOn) {
+                            ambientAudio.play().catch(err => console.error("Still couldn't play ambient audio:", err));
+                        }
+                        document.removeEventListener('click', clickHandler);
+                    };
+                    document.addEventListener('click', clickHandler);
+                });
+            }
+        }
+    }
+    
+    // Play breathing sound for specific phase
+    function playBreathingSound(phase) {
+        if (breathingAudio && currentBreathingSrc && soundOn) {
+            // Reset the audio to start from beginning
+            breathingAudio.currentTime = 0;
+            
+            const playPromise = breathingAudio.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log(`Breathing sound played for ${phase} phase`);
+                }).catch(e => {
+                    console.error("Breathing audio play failed:", e);
+                });
+            }
+        }
+    }
+    
+    // Update sound button appearance
+function updateSoundButton() {
+    if (!soundBtn) return;
+    
+    if (soundOn) {
+        soundBtn.innerHTML = '<i class="fas fa-volume-up mr-2"></i> Sound On';
+    } else {
+        soundBtn.innerHTML = '<i class="fas fa-volume-mute mr-2"></i> Sound Off';
+    }
+
+    // Always have same styling
+    soundBtn.classList.remove('bg-indigo-600', 'text-white');
+    soundBtn.classList.add('text-indigo-600', 'border', 'bg-white');
+}
+    
+    // Initialize sound selectors
+    if (breathingSound) {
+        breathingSound.addEventListener('change', () => {
+            const src = breathingSound.value;
+            loadBreathingSound(src);
+            localStorage.setItem('zenflow-breathing-sound', src);
+        });
+    }
+    
+    if (ambientSound) {
+        ambientSound.addEventListener('change', () => {
+            const src = ambientSound.value;
+            loadAmbientSound(src);
+            localStorage.setItem('zenflow-ambient-sound', src);
+        });
+    }
+
+    // Breathing state
+    let isBreathing = false;
+    let breathInterval;
+    let progressInterval;
+    let currentPhase = 'inhale';
+    let phaseStartTime;
+    let totalCycleTime;
+    let vibrationEnabled = false;
+
+    // User count simulation - more realistic numbers
+    function updateActiveUsers() {
+        const base = 42;
+        const variation = Math.floor(Math.random() * 8) - 3;
+        if (activeUsers) { // Check if element exists
+           activeUsers.textContent = Math.max(1, base + variation).toLocaleString();
+        }
+    }
+    setInterval(updateActiveUsers, 10000);
+    updateActiveUsers(); // Initial call
+
+    // Slider updates
+    if (inhaleTime) inhaleTime.oninput = () => inhaleValue.textContent = `${inhaleTime.value}s`;
+    if (exhaleTime) exhaleTime.oninput = () => exhaleValue.textContent = `${exhaleTime.value}s`;
+    if (holdIn) holdIn.oninput = () => holdInValue.textContent = `${holdIn.value}s`;
+    if (holdOut) holdOut.oninput = () => holdOutValue.textContent = `${holdOut.value}s`;
+
+    // Current technique tracking
+    let currentTechniqueName = "Box Breathing";
+    let currentTechniquePattern = "4-4-4-4";
+    const currentTechniqueNameEl = document.getElementById('current-technique-name');
+    const currentTechniquePatternEl = document.getElementById('current-technique-pattern');
+    
+    // Apply technique buttons
+    applyTechniqueBtns.forEach(btn => {
+        btn.onclick = () => {
+            // Apply the technique values
+            if (inhaleTime) inhaleTime.value = btn.dataset.inhale;
+            if (exhaleTime) exhaleTime.value = btn.dataset.exhale;
+            if (holdIn) holdIn.value = btn.dataset.holdIn;
+            if (holdOut) holdOut.value = btn.dataset.holdOut;
+            
+            if (inhaleValue) inhaleValue.textContent = `${btn.dataset.inhale}s`;
+            if (exhaleValue) exhaleValue.textContent = `${btn.dataset.exhale}s`;
+            if (holdInValue) holdInValue.textContent = `${btn.dataset.holdIn}s`;
+            if (holdOutValue) holdOutValue.textContent = `${btn.dataset.holdOut}s`;
+            
+            // Update technique name and pattern
+            const techniqueName = btn.closest('.technique-card')?.querySelector('h3')?.textContent || 
+                                 btn.textContent.trim() || "Custom Breathing";
+            currentTechniqueName = techniqueName;
+            currentTechniquePattern = `${btn.dataset.inhale}-${btn.dataset.holdIn}-${btn.dataset.exhale}-${btn.dataset.holdOut}`;
+            
+            if (currentTechniqueNameEl) currentTechniqueNameEl.textContent = currentTechniqueName;
+            if (currentTechniquePatternEl) currentTechniquePatternEl.textContent = currentTechniquePattern;
+            
+            // Visual feedback
+            btn.closest('.technique-card')?.classList.add('bg-indigo-50');
+            setTimeout(() => btn.closest('.technique-card')?.classList.remove('bg-indigo-50'), 500);
+            
+            // If the button has a view to navigate to
+            if (btn.dataset.view) {
+                navigateTo(btn.dataset.view);
+            }
+        };
+    });
+
+    // Sound toggle button
+    if (soundBtn) {
+        soundBtn.onclick = () => {
+            soundOn = !soundOn;
+            
+            if (soundOn) {
+                // Try to play ambient sound if available
+                if (currentAmbientSrc) {
+                    playAmbientSound();
+                } else if (ambientSound && ambientSound.value) {
+                    // If we have a selection but haven't loaded it yet
+                    currentAmbientSrc = ambientSound.value;
+                    loadAmbientSound(currentAmbientSrc);
+                }
+                
+                // Make sure breathing sound is loaded if available
+                if (!currentBreathingSrc && breathingSound && breathingSound.value) {
+                    currentBreathingSrc = breathingSound.value;
+                    loadBreathingSound(currentBreathingSrc);
+                }
+                
+                // If no sounds are selected, show a message
+                if (!currentAmbientSrc && !currentBreathingSrc) {
+                    showToast('Please select at least one sound type');
+                }
+            } else {
+                // Pause all audio when turning sound off
+                if (ambientAudio && !ambientAudio.paused) {
+                    ambientAudio.pause();
+                }
+                if (breathingAudio && !breathingAudio.paused) {
+                    breathingAudio.pause();
+                }
+            }
+            
+            updateSoundButton();
+            
+            // Save sound state to localStorage
+            localStorage.setItem('zenflow-sound-on', soundOn);
+        };
+    }
+    
+    // Load sound settings from localStorage
+    const savedSoundOn = localStorage.getItem('zenflow-sound-on');
+    const savedBreathingSound = localStorage.getItem('zenflow-breathing-sound');
+    const savedAmbientSound = localStorage.getItem('zenflow-ambient-sound');
+    
+    // Apply saved settings
+    soundOn = savedSoundOn === 'true';
+    updateSoundButton();
+    
+    // Set the select values from localStorage
+    if (savedBreathingSound && breathingSound) {
+        breathingSound.value = savedBreathingSound;
+        loadBreathingSound(savedBreathingSound);
+    }
+    
+    if (savedAmbientSound && ambientSound) {
+        ambientSound.value = savedAmbientSound;
+        loadAmbientSound(savedAmbientSound);
+    }
+    
+    // Don't auto-play until user interaction (browser restriction)
+
+    // Vibration function
+    function vibrate(duration) {
+        if (vibrationEnabled && navigator.vibrate) {
+            navigator.vibrate(duration);
+        }
+    }
+
+    // Breathing animation
+    function startBreathing() {
+        if (isBreathing || !breathingCircle) return;
+        isBreathing = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+
+        const inhaleDuration = parseInt(inhaleTime.value) * 1000;
+        const exhaleDuration = parseInt(exhaleTime.value) * 1000;
+        const holdInDuration = parseInt(holdIn.value) * 1000;
+        const holdOutDuration = parseInt(holdOut.value) * 1000;
+
+        totalCycleTime = inhaleDuration + exhaleDuration + holdInDuration + holdOutDuration;
+        if (totalCycleTime === 0) { // Prevent division by zero
+             stopBreathing();
+             alert("Please set positive durations for breathing phases.");
+             return;
+        }
+
+function setPhase(phase, text, circleScale, circleColor, layer1Scale, layer1Opacity, layer2Scale, layer2Opacity, vibrationDuration) {
+    currentPhase = phase;
+    phaseStartTime = Date.now();
+
+    // Determine phase duration in seconds
+    let phaseDurationMs = 0;
+    if (phase === 'inhale') phaseDurationMs = parseInt(inhaleTime.value) * 1000;
+    else if (phase === 'exhale') phaseDurationMs = parseInt(exhaleTime.value) * 1000;
+    else if (phase === 'hold-in') phaseDurationMs = parseInt(holdIn.value) * 1000;
+    else if (phase === 'hold-out') phaseDurationMs = parseInt(holdOut.value) * 1000;
+    let secondsLeft = Math.ceil(phaseDurationMs / 1000);
+
+    // Determine nostril cue
+    let nostrilCue = '';
+    if (currentTechniqueName && currentTechniqueName.toLowerCase().includes('alternate nostril')) {
+        if (phase === 'inhale') nostrilCue = 'Inhale Left';
+        else if (phase === 'exhale') nostrilCue = 'Exhale Right';
+        else nostrilCue = ''; // suppress "Hold" cue
+    } else {
+        nostrilCue = secondsLeft > 0 ? `${secondsLeft}s` : '';
+    }
+
+    breathText.innerHTML = `<div style="font-size:1.25rem; text-align:center;">${text}</div><div style="font-size:0.75rem; text-align:center;">${nostrilCue}</div>`;
+
+    breathingCircle.style.transform = `scale(${circleScale})`;
+    breathingCircle.style.backgroundColor = circleColor;
+    layer1.style.transform = `scale(${layer1Scale})`;
+    layer1.style.opacity = layer1Opacity;
+    layer2.style.transform = `scale(${layer2Scale})`;
+    layer2.style.opacity = layer2Opacity;
+    vibrate(vibrationDuration);
+    
+    // Play breathing sound at the start of each phase if enabled
+    if (phase === 'inhale' || phase === 'exhale') {
+        playBreathingSound(phase);
+    }
+
+    // Update countdown every second
+    if (window.breathCueInterval) clearInterval(window.breathCueInterval);
+    window.breathCueInterval = setInterval(() => {
+        const elapsed = Date.now() - phaseStartTime;
+        const remainingMs = Math.max(phaseDurationMs - elapsed, 0);
+        const secondsRemaining = Math.ceil(remainingMs / 1000);
+
+        let cue = '';
+        if (currentTechniqueName && currentTechniqueName.toLowerCase().includes('alternate nostril')) {
+            if (phase === 'inhale') cue = 'Inhale Left';
+            else if (phase === 'exhale') cue = 'Exhale Right';
+            else cue = ''; // suppress "Hold"
+        } else {
+            cue = secondsRemaining > 0 ? `${secondsRemaining}s` : '';
+        }
+
+        breathText.innerHTML = `<div style="font-size:1.25rem; text-align:center;">${text}</div><div style="font-size:0.75rem; text-align:center;">${cue}</div>`;
+
+        if (remainingMs <= 0) clearInterval(window.breathCueInterval);
+    }, 250);
+}
+
+        setPhase('inhale', 'INHALE', 1.2, '#818cf8', 1.3, 0.3, 1.25, 0.4, 100); // Start with inhale
+
+        progressInterval = setInterval(() => {
+            const elapsed = Date.now() - phaseStartTime;
+            let phaseDuration = 1; // Avoid division by zero
+            let baseProgress = 0;
+            let phaseProgressPortion = 1;
+
+            switch (currentPhase) {
+                case 'inhale': phaseDuration = inhaleDuration; baseProgress = 0; phaseProgressPortion = 0.5; break;
+                case 'hold-in': phaseDuration = holdInDuration; baseProgress = 50; phaseProgressPortion = 0.1; break;
+                case 'exhale': phaseDuration = exhaleDuration; baseProgress = 60; phaseProgressPortion = 0.3; break;
+                case 'hold-out': phaseDuration = holdOutDuration; baseProgress = 90; phaseProgressPortion = 0.1; break;
+            }
+            phaseDuration = Math.max(phaseDuration, 1); // Ensure duration is at least 1ms
+            const phaseProgress = (elapsed / phaseDuration) * (phaseProgressPortion * 100);
+            progressBar.style.width = `${Math.min(baseProgress + phaseProgress, 100)}%`;
+        }, 50);
+
+        breathInterval = setInterval(() => {
+            const now = Date.now();
+            const phaseElapsed = now - phaseStartTime;
+
+            if (currentPhase === 'inhale' && phaseElapsed >= inhaleDuration) {
+                if (holdInDuration > 0) setPhase('hold-in', 'HOLD', 1.2, '#6366f1', 1.3, 0.3, 1.25, 0.4, 50);
+                else setPhase('exhale', 'EXHALE', 1, '#4f46e5', 1, 0.2, 1, 0.3, 100);
+            } else if (currentPhase === 'hold-in' && phaseElapsed >= holdInDuration) {
+                setPhase('exhale', 'EXHALE', 1, '#4f46e5', 1, 0.2, 1, 0.3, 100);
+            } else if (currentPhase === 'exhale' && phaseElapsed >= exhaleDuration) {
+                if (holdOutDuration > 0) setPhase('hold-out', 'REST', 1, '#4338ca', 1, 0.2, 1, 0.3, 50);
+                else setPhase('inhale', 'INHALE', 1.2, '#818cf8', 1.3, 0.3, 1.25, 0.4, 100);
+            } else if (currentPhase === 'hold-out' && phaseElapsed >= holdOutDuration) {
+                setPhase('inhale', 'INHALE', 1.2, '#818cf8', 1.3, 0.3, 1.25, 0.4, 100);
+            }
+        }, 100);
+    }
+
+    function stopBreathing() {
+        if (!isBreathing || !breathingCircle) return;
+        clearInterval(breathInterval);
+        clearInterval(progressInterval);
+        isBreathing = false;
+        if (startBtn) startBtn.disabled = false;
+        if (stopBtn) stopBtn.disabled = true;
+        if (breathText) breathText.textContent = 'READY';
+        // Reset styles
+        breathingCircle.style.transform = 'scale(1)';
+        breathingCircle.style.backgroundColor = '#6366f1';
+        layer1.style.transform = 'scale(1)';
+        layer1.style.opacity = '0.2';
+        layer2.style.transform = 'scale(1)';
+        layer2.style.opacity = '0.3';
+        progressBar.style.width = '0%';
+    }
+
+    if (startBtn) startBtn.onclick = startBreathing;
+    if (stopBtn) stopBtn.onclick = stopBreathing;
+
+    // Settings Modal Logic
+    if (settingsBtn) {
+        settingsBtn.onclick = () => {
+            // Sync settings between profile view and modal
+            if (darkModeCheckbox && darkModeCheckboxModal) {
+                darkModeCheckboxModal.checked = darkModeCheckbox.checked;
+            }
+            if (vibrationToggle && vibrationToggleModal) {
+                vibrationToggleModal.checked = vibrationToggle.checked;
+            }
+            if (soundSelect && soundSelectModal) {
+                soundSelectModal.value = soundSelect.value;
+            }
+            settingsModal.classList.remove('hidden');
+        };
+    }
+    
+    if (closeSettings) {
+        closeSettings.onclick = () => settingsModal.classList.add('hidden');
+    }
+    
+    if (settingsModal) {
+        settingsModal.onclick = e => { if (e.target === settingsModal) settingsModal.classList.add('hidden'); };
+    }
+
+    // Settings Persistence & Application
+    let selectedThemeColor = '#667eea'; // default indigo
+    let darkModeEnabled = false;
+
+    function applyDarkMode(enabled) {
+         if (enabled) {
+            document.body.classList.add('dark', 'dark-mode');
+            document.body.classList.remove('bg-gray-50', 'text-gray-800');
+            document.body.classList.add('bg-gray-900', 'text-gray-100');
+        } else {
+            document.body.classList.remove('dark', 'dark-mode');
+            document.body.classList.remove('bg-gray-900', 'text-gray-100');
+            document.body.classList.add('bg-gray-50', 'text-gray-800');
+        }
+        
+        // Update both checkboxes
+        if (darkModeCheckbox) darkModeCheckbox.checked = enabled;
+        if (darkModeCheckboxModal) darkModeCheckboxModal.checked = enabled;
+    }
+
+    function applyThemeColor(color) {
+        const header = document.querySelector('header.gradient-bg');
+        if (header) { // Check if header exists
+             // Adjust the gradient - keeping the second color fixed for now
+             header.style.background = `linear-gradient(135deg, ${color} 0%, #764ba2 100%)`;
+        }
+        // Update primary buttons (example: start button, save settings)
+        document.querySelectorAll('.bg-indigo-600').forEach(el => el.style.backgroundColor = color);
+        
+        // Highlight the selected theme buttons
+        themeButtons.forEach(b => {
+            b.style.borderColor = b.dataset.color === color ? '#000' : 'white';
+        });
+    }
+
+    // Load saved settings
+    const savedTheme = localStorage.getItem('zenflow-theme-color');
+    const savedDarkMode = localStorage.getItem('zenflow-dark-mode');
+    const savedSoundSrc = localStorage.getItem('zenflow-sound-src');
+    const savedVibration = localStorage.getItem('zenflow-vibration');
+    const savedView = localStorage.getItem('zenflow-current-view');
+
+    if (savedTheme) selectedThemeColor = savedTheme;
+    darkModeEnabled = savedDarkMode === 'true';
+    if (savedSoundSrc) {
+        if (soundSelect) soundSelect.value = savedSoundSrc;
+        if (soundSelectModal) soundSelectModal.value = savedSoundSrc;
+    }
+    vibrationEnabled = savedVibration === 'true';
+
+    // Apply loaded settings
+    applyDarkMode(darkModeEnabled);
+    applyThemeColor(selectedThemeColor);
+    loadAudio(soundSelect ? soundSelect.value : (soundSelectModal ? soundSelectModal.value : '')); // Load initial or saved sound
+    if (vibrationToggle) vibrationToggle.checked = vibrationEnabled;
+    if (vibrationToggleModal) vibrationToggleModal.checked = vibrationEnabled;
+    updateSoundButton(); // Update based on initial state
+
+    // Restore last view if available
+    if (savedView) {
+        navigateTo(savedView);
+    }
+
+    // Theme button click
+    themeButtons.forEach(btn => {
+        btn.onclick = () => {
+            selectedThemeColor = btn.dataset.color; // Use data-color
+            applyThemeColor(selectedThemeColor);
+        };
+    });
+
+    // Dark mode toggle in profile view
+    if (darkModeCheckbox) {
+        darkModeCheckbox.onchange = () => {
+            darkModeEnabled = darkModeCheckbox.checked;
+            applyDarkMode(darkModeEnabled);
+            localStorage.setItem('zenflow-dark-mode', darkModeEnabled);
+        };
+    }
+    
+    // Vibration toggle in profile view
+    if (vibrationToggle) {
+        vibrationToggle.onchange = () => {
+            vibrationEnabled = vibrationToggle.checked;
+            localStorage.setItem('zenflow-vibration', vibrationEnabled);
+        };
+    }
+    
+    // Sound select in profile view
+    if (soundSelect) {
+        soundSelect.onchange = () => {
+            const newSoundSrc = soundSelect.value;
+            localStorage.setItem('zenflow-sound-src', newSoundSrc);
+            loadAudio(newSoundSrc);
+        };
+    }
+
+    // Save button click in modal
+    if (saveSettingsBtn) {
+        saveSettingsBtn.onclick = () => {
+            // Get values from modal controls
+            if (darkModeCheckboxModal) darkModeEnabled = darkModeCheckboxModal.checked;
+            if (vibrationToggleModal) vibrationEnabled = vibrationToggleModal.checked;
+            const newSoundSrc = soundSelectModal ? soundSelectModal.value : '';
+
+            // Save to localStorage
+            localStorage.setItem('zenflow-dark-mode', darkModeEnabled);
+            localStorage.setItem('zenflow-theme-color', selectedThemeColor);
+            localStorage.setItem('zenflow-sound-src', newSoundSrc);
+            localStorage.setItem('zenflow-vibration', vibrationEnabled);
+
+            // Apply settings
+            applyDarkMode(darkModeEnabled);
+            applyThemeColor(selectedThemeColor);
+            loadAudio(newSoundSrc);
+
+            // Sync with profile view controls
+            if (darkModeCheckbox) darkModeCheckbox.checked = darkModeEnabled;
+            if (vibrationToggle) vibrationToggle.checked = vibrationEnabled;
+            if (soundSelect) soundSelect.value = newSoundSrc;
+
+            // Close modal
+            settingsModal.classList.add('hidden');
+            
+            // Feedback
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white px-4 py-2 rounded-full shadow-lg z-50 fade-in';
+            toast.textContent = 'Settings saved!';
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 500);
+            }, 2000);
+        };
+    }
+
+    // Initialize UI
+    if (breathingCircle) stopBreathing(); // Ensure initial state is READY
+    
+    // Update time in status bar
+    function updateStatusBarTime() {
+        const timeElement = document.querySelector('.status-bar .text-xs');
+        if (timeElement) {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const formattedHours = hours % 12 || 12;
+            const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+            timeElement.textContent = `${formattedHours}:${formattedMinutes} ${ampm}`;
+        }
+    }
+    
+    updateStatusBarTime();
+    setInterval(updateStatusBarTime, 60000); // Update every minute
+
+</script>
+</body>
+</html>
