@@ -222,6 +222,10 @@
                                 <div class="absolute w-3/5 h-3/5 rounded-full bg-indigo-400 flex items-center justify-center shadow-lg transition-all duration-1500 ease-in-out scale-100" id="breathing-circle">
                                     <span id="breath-text" class="text-white font-bold text-2xl breath-text">READY</span>
                                 </div>
+                                <!-- Moved Sound Toggle Button Here -->
+                                <button id="sound-btn" aria-label="Toggle all sounds" class="absolute bottom-2 right-2 p-2 w-10 h-10 bg-white/50 border border-indigo-200 text-indigo-600 rounded-full font-medium hover:bg-indigo-50/70 transition flex items-center justify-center">
+                                    <i class="fas fa-volume-mute"></i>
+                                </button>
                             </div>
                             <div class="w-full max-w-md">
                                 <div class="flex justify-between mb-1">
@@ -317,11 +321,7 @@
                                 </div>
                             </div>
                             
-                            <div class="flex justify-center">
-                                <button id="sound-btn" aria-label="Toggle all sounds" class="px-4 py-2 bg-white border border-indigo-200 text-indigo-600 rounded-full font-medium hover:bg-indigo-50 transition flex items-center">
-                                    <i class="fas fa-volume-mute mr-2"></i> Sound Off
-                                </button>
-                            </div>
+                            <!-- Removed original sound button location -->
                         </div>
                     </div>
                     
@@ -542,8 +542,8 @@
             
             <!-- Profile View -->
             <div id="profile-view" class="app-view page-transition">
-                <div class="p-4">
-                    <div class="flex flex-col items-center mb-6">
+                <div class="px-4 pb-4"> <!-- Removed pt-6 again -->
+                    <div class="flex flex-col items-center mb-6"> <!-- Reverted to flex centering -->
                         <div class="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center mb-3">
                             <i class="fas fa-user text-indigo-600 text-3xl"></i>
                         </div>
@@ -1064,19 +1064,34 @@ function loadBreathingSound(src) {
         });
     }
     
-    // Update sound button appearance
+    // Update main sound button appearance based on overall state
 function updateSoundButton() {
     if (!soundBtn) return;
-    
-    if (soundOn) {
-        soundBtn.innerHTML = '<i class="fas fa-volume-up mr-2"></i> Sound On';
-    } else {
-        soundBtn.innerHTML = '<i class="fas fa-volume-mute mr-2"></i> Sound Off';
-    }
+    const icon = soundBtn.querySelector('i');
+    if (!icon) return;
 
-    // Always have same styling
-    soundBtn.classList.remove('bg-indigo-600', 'text-white');
-    soundBtn.classList.add('text-indigo-600', 'border', 'bg-white');
+    const isAnySoundOn = breathingVolume > 0 || ambientVolume > 0;
+    soundOn = isAnySoundOn; // Update the global soundOn state
+
+    icon.classList.remove('fa-volume-up', 'fa-volume-down', 'fa-volume-off', 'fa-volume-mute');
+
+    if (!isAnySoundOn) {
+        icon.classList.add('fa-volume-mute');
+        soundBtn.setAttribute('aria-label', 'Unmute all sounds');
+    } else {
+        // Show icon based on the loudest active sound
+        const maxVolume = Math.max(breathingVolume, ambientVolume);
+         if (maxVolume > 0 && maxVolume <= 0.3) {
+            icon.classList.add('fa-volume-off');
+        } else if (maxVolume > 0.3 && maxVolume <= 0.7) {
+            icon.classList.add('fa-volume-down');
+        } else {
+            icon.classList.add('fa-volume-up');
+        }
+        soundBtn.setAttribute('aria-label', 'Mute all sounds');
+    }
+    // Save the overall sound state
+    localStorage.setItem('zenflow-sound-on', soundOn);
 }
     
     // Initialize sound selectors
@@ -1162,45 +1177,77 @@ function updateSoundButton() {
         };
     });
 
-    // Sound toggle button
+    // Main sound toggle button logic
     if (soundBtn) {
         soundBtn.onclick = () => {
-            soundOn = !soundOn;
-            
-            if (soundOn) {
-                // Try to play ambient sound if available
-                if (currentAmbientSrc) {
+            const isCurrentlyMuted = breathingVolume === 0 && ambientVolume === 0;
+
+            if (isCurrentlyMuted) {
+                // Unmute: Restore volumes from localStorage or defaults
+                let savedBreathingVol = parseFloat(localStorage.getItem('zenflow-breathing-volume-last'));
+                let savedAmbientVol = parseFloat(localStorage.getItem('zenflow-ambient-volume-last'));
+
+                breathingVolume = (isNaN(savedBreathingVol) || savedBreathingVol === 0) ? 0.8 : savedBreathingVol;
+                ambientVolume = (isNaN(savedAmbientVol) || savedAmbientVol === 0) ? 0.4 : savedAmbientVol;
+
+                // Ensure at least one sound is active if unmuting
+                if (breathingVolume === 0 && ambientVolume === 0) {
+                    ambientVolume = 0.4; // Default to ambient if both were 0
+                }
+
+                soundOn = true; // Set global state
+
+                // Update sliders and audio elements
+                if (breathingVolumeSlider) breathingVolumeSlider.value = breathingVolume * 100;
+                if (ambientVolumeSlider) ambientVolumeSlider.value = ambientVolume * 100;
+                if (breathingAudio) breathingAudio.volume = breathingVolume;
+                if (voiceCueAudio) voiceCueAudio.volume = breathingVolume;
+                if (ambientAudio) ambientAudio.volume = ambientVolume;
+
+                // Play ambient sound ONLY if it's now unmuted and loaded
+                if (ambientVolume > 0 && currentAmbientSrc) {
                     playAmbientSound();
-                } else if (ambientSound && ambientSound.value) {
-                    // If we have a selection but haven't loaded it yet
-                    currentAmbientSrc = ambientSound.value;
-                    loadAmbientSound(currentAmbientSrc);
                 }
-                
-                // Make sure breathing sound is loaded if available
-                if (!currentBreathingSrc && breathingSound && breathingSound.value) {
-                    currentBreathingSrc = breathingSound.value;
-                    loadBreathingSound(currentBreathingSrc);
+                 // Load defaults if needed when unmuting
+                if (breathingVolume > 0 && !currentBreathingSrc) {
+                    loadBreathingSound('voice');
+                    if (breathingSound) breathingSound.value = 'voice';
+                    localStorage.setItem('zenflow-breathing-sound', 'voice');
                 }
-                
-                // If no sounds are selected, show a message
-                if (!currentAmbientSrc && !currentBreathingSrc) {
-                    showToast('Please select at least one sound type');
+                 if (ambientVolume > 0 && !currentAmbientSrc) {
+                    const defaultAmbient = 'assets/ambient/campfire.mp3';
+                    loadAmbientSound(defaultAmbient);
+                    if (ambientSound) ambientSound.value = defaultAmbient;
+                    localStorage.setItem('zenflow-ambient-sound', defaultAmbient);
+                    playAmbientSound(); // Play after loading default
                 }
+
             } else {
-                // Pause all audio when turning sound off
-                if (ambientAudio && !ambientAudio.paused) {
-                    ambientAudio.pause();
-                }
-                if (breathingAudio && !breathingAudio.paused) {
-                    breathingAudio.pause();
-                }
+                // Mute: Save current volumes and set to 0
+                localStorage.setItem('zenflow-breathing-volume-last', breathingVolume);
+                localStorage.setItem('zenflow-ambient-volume-last', ambientVolume);
+
+                breathingVolume = 0;
+                ambientVolume = 0;
+                soundOn = false; // Set global state
+
+                // Update sliders and audio elements
+                if (breathingVolumeSlider) breathingVolumeSlider.value = 0;
+                if (ambientVolumeSlider) ambientVolumeSlider.value = 0;
+                if (breathingAudio) breathingAudio.volume = 0;
+                if (voiceCueAudio) voiceCueAudio.volume = 0;
+                if (ambientAudio) ambientAudio.volume = 0; // Also pause ambient audio
+
+                // Explicitly pause audio
+                if (ambientAudio && !ambientAudio.paused) ambientAudio.pause();
+                if (breathingAudio && !breathingAudio.paused) breathingAudio.pause();
+                if (voiceCueAudio && !voiceCueAudio.paused) voiceCueAudio.pause();
             }
-            
+
+            // Update all icons
             updateSoundButton();
-            
-            // Save sound state to localStorage
-            localStorage.setItem('zenflow-sound-on', soundOn);
+            updateVolumeIcon(breathingVolumeIcon, breathingVolume);
+            updateVolumeIcon(ambientVolumeIcon, ambientVolume);
         };
     }
     
@@ -1587,9 +1634,15 @@ function setPhase(phase, text, circleScale, circleColor, layer1Scale, layer1Opac
         if (savedStats) {
             try {
                 const parsedStats = JSON.parse(savedStats);
+                // Sanity check for totalMinutes - reset if unreasonably high (likely old ms value)
+                if (parsedStats.totalMinutes && parsedStats.totalMinutes > (parsedStats.totalSessions || 1) * 120 * 60) { // Check if > 120 min avg or just huge
+                    console.warn('Potentially invalid totalMinutes found in localStorage, resetting to 0.');
+                    parsedStats.totalMinutes = 0;
+                }
                 meditationStats = { ...meditationStats, ...parsedStats };
             } catch (e) {
                 console.error('Error parsing meditation stats:', e);
+                // If parsing fails, stats will remain default
             }
         }
         
@@ -1818,6 +1871,7 @@ function setPhase(phase, text, circleScale, circleColor, layer1Scale, layer1Opac
             if (voiceCueAudio) voiceCueAudio.volume = breathingVolume;
 
             updateVolumeIcon(breathingVolumeIcon, breathingVolume);
+            updateSoundButton(); // Sync main button
         });
     }
     
@@ -1830,6 +1884,7 @@ function setPhase(phase, text, circleScale, circleColor, layer1Scale, layer1Opac
             if (ambientAudio) ambientAudio.volume = ambientVolume;
 
             updateVolumeIcon(ambientVolumeIcon, ambientVolume);
+            updateSoundButton(); // Sync main button
         });
     }
 
@@ -1924,6 +1979,7 @@ if (breathingVolumeIcon) {
       }
     }
     updateVolumeIcon(breathingVolumeIcon, breathingVolume);
+    updateSoundButton(); // Sync main button
   });
 }
 
@@ -1935,6 +1991,7 @@ if (ambientVolumeIcon) {
       ambientVolume = 0;
       if (ambientVolumeSlider) ambientVolumeSlider.value = 0;
       if (ambientAudio) ambientAudio.volume = 0;
+      if (ambientAudio && !ambientAudio.paused) ambientAudio.pause(); // Explicitly pause
     } else {
       // Restore saved or default volume
       let savedVol = parseFloat(localStorage.getItem('zenflow-ambient-volume-last'));
@@ -1951,8 +2008,13 @@ if (ambientVolumeIcon) {
         if (ambientSound) ambientSound.value = defaultAmbient;
         localStorage.setItem('zenflow-ambient-sound', defaultAmbient);
       }
+      // Play ambient sound if global sound is on
+      if (soundOn && currentAmbientSrc) {
+          playAmbientSound();
+      }
     }
     updateVolumeIcon(ambientVolumeIcon, ambientVolume);
+    updateSoundButton(); // Sync main button
   });
 }
 </script>
