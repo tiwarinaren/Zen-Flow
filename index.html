@@ -92,6 +92,26 @@
         }
     </style>
     <style>
+    /* Force Profile page to fill container but below header */
+    #profile-view {
+        position: absolute !important;
+        top: 80px !important; /* offset for header height */
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        overflow-y: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    </style>
+    <style>
+    /* Force remove top margin/padding from Profile page content */
+    #profile-view > div {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    </style>
+    <style>
         /* Remove top padding below header */
         .app-view {
             padding-top: 0 !important;
@@ -799,6 +819,9 @@
                     targetView.classList.remove('page-enter');
                 }, 10);
             }
+            // Reset scroll position to top when switching views
+            const appContent = document.querySelector('.app-content');
+            if (appContent) appContent.scrollTop = 0;
         }, 300);
         
         // Save the current view to localStorage
